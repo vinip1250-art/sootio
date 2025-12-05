@@ -1,5 +1,4 @@
-// api/index.js (Vercel Serverless Function)
-// projeto está com "type": "module", então usamos import/export ESModule
+// api/index.js - Vercel Serverless Function
 
 import handler from '../serverless.js';
 

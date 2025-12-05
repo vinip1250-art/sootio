@@ -2915,6 +2915,9 @@ if (import.meta.url === `file://${__filename}`) {
 // Export for cluster usage
 export { app, server, PORT, HOST };
 
+// Default export para o runtime Node da Vercel
+export default app;
+
 if (sqliteCache?.isEnabled()) {
     sqliteCache.initSqlite().then(() => {
         console.log('[CACHE] SQLite cache initialized');

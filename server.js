@@ -278,14 +278,40 @@ app.use(swStats.getMiddleware({
     version: addonInterface.manifest.version,
 }));
 
-// Rate limiter middleware (unchanged)
+// IP-based rate limiter to prevent scraping
+// Configurable via environment variables
+const RATE_LIMIT_WINDOW_MS = parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 60000; // 1 minute default
+const RATE_LIMIT_MAX_REQUESTS = parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 60; // 60 requests per minute default
+const RATE_LIMIT_ENABLED = process.env.RATE_LIMIT_ENABLED !== 'false'; // Enabled by default
+
 const rateLimiter = rateLimit({
-    windowMs: 120 * 120 * 1000,
-    limit: 1000,
-    standardHeaders: true,
-    legacyHeaders: false,
-    keyGenerator: (req) => requestIp.getClientIp(req)
+    windowMs: RATE_LIMIT_WINDOW_MS,
+    limit: RATE_LIMIT_MAX_REQUESTS,
+    standardHeaders: true, // Return rate limit info in `RateLimit-*` headers
+    legacyHeaders: false,  // Disable `X-RateLimit-*` headers
+
+    // Use client IP for rate limiting
+    keyGenerator: (req) => {
+        const clientIp = requestIp.getClientIp(req);
+        return clientIp;
+    },
+
+    // Skip rate limiting if disabled via env var
+    skip: (req) => !RATE_LIMIT_ENABLED,
+
+    // Custom handler for rate limit exceeded
+    handler: (req, res) => {
+        const clientIp = requestIp.getClientIp(req);
+        console.warn(`[RATE-LIMIT] IP ${clientIp} exceeded rate limit: ${RATE_LIMIT_MAX_REQUESTS} requests per ${RATE_LIMIT_WINDOW_MS}ms`);
+        res.status(429).json({
+            error: 'Too many requests',
+            message: `Rate limit exceeded. Maximum ${RATE_LIMIT_MAX_REQUESTS} requests per ${RATE_LIMIT_WINDOW_MS / 1000} seconds.`,
+            retryAfter: Math.ceil(RATE_LIMIT_WINDOW_MS / 1000)
+        });
+    }
 });
+
+console.log(`[RATE-LIMIT] Configured: ${RATE_LIMIT_ENABLED ? 'ENABLED' : 'DISABLED'} - ${RATE_LIMIT_MAX_REQUESTS} requests per ${RATE_LIMIT_WINDOW_MS / 1000}s per IP`);
 
 // Tune server timeouts for high traffic and keep-alive performance
 try {

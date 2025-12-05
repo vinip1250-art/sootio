@@ -9,7 +9,7 @@ import serverless from './serverless.js';
 import requestIp from 'request-ip';
 import rateLimit from 'express-rate-limit';
 import swStats from 'swagger-stats';
-import addonInterface from "./addon.js";
+import addonInterface from './addon.js';
 import streamProvider from './lib/stream-provider.js';
 import * as sqliteCache from './lib/util/sqlite-cache.js';
 import * as sqliteHashCache from './lib/util/sqlite-hash-cache.js';
@@ -34,14 +34,24 @@ import landingTemplate from './lib/util/landingTemplate.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const dataDir = path.join(__dirname, 'data');
+// Em ambiente serverless (Vercel), /var/task é somente leitura.
+// Vamos usar /tmp (gravável) ou uma variável DATA_DIR, se você quiser sobrescrever.
+const defaultDataDir = process.env.VERCEL ? '/tmp/sootio-data' : path.join(__dirname, 'data');
+const dataDir = process.env.DATA_DIR || defaultDataDir;
 
-if (!fs.existsSync(dataDir)) {
+try {
+  if (!fs.existsSync(dataDir)) {
     console.log(`[SERVER] Creating data directory: ${dataDir}`);
     fs.mkdirSync(dataDir, { recursive: true });
     console.log(`[SERVER] Created data directory: ${dataDir}`);
-} else {
+  } else {
     console.log(`[SERVER] Data directory already exists: ${dataDir}`);
+  }
+} catch (err) {
+  console.warn(
+    `[SERVER] Failed to create data directory (${dataDir}). ` +
+    `Continuing without SQLite cache: ${err.message}`
+  );
 }
 
 // Using SQLite for local caching
